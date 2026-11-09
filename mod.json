@@ -4,9 +4,9 @@
   "gd": {
     "android": "2.2081"
   },
-  "id": "kae.autoplay",
-  "name": "Kae AutoPlay",
+  "id": "kae.modmenu",
+  "name": "Kae Mod-Menu",
   "version": "v0.1.0",
   "developer": "Kae",
-  "description": "Smart gameplay analysis and automated demonstration for Cube and Ship."
+  "description": "Premium all-in-one Geometry Dash mod menu with gameplay, visual and practice utilities."
 }
