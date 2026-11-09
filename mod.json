@@ -1,11 +1,12 @@
+
 {
   "geode": "5.11.2",
   "gd": {
     "android": "2.2081"
   },
-  "id": "kae.inputadjuster",
-  "name": "Input Adjuster",
+  "id": "kae.autoplay",
+  "name": "Kae AutoPlay",
   "version": "v0.1.0",
   "developer": "Kae",
-  "description": "Touch input calibration and precision analysis."
+  "description": "Smart gameplay analysis and automated demonstration for Cube and Ship."
 }
