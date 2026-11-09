@@ -22,8 +22,7 @@ jobs:
           sdk: given
 
       - name: Upload mod
-        uses: actions/upload-artifact@v4
-        with:
-          name: Input-Adjuster-Android64
-          path: ${{ steps.build.outputs.build-output }}
-          
+uses: actions/upload-artifact@v4
+with:
+  name: Kae-AutoPlay-Android64
+  path: ${{ steps.build.outputs.build-output }}
