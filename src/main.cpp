@@ -1,276 +1,378 @@
 
 #include <Geode/Geode.hpp>
 #include <Geode/modify/MenuLayer.hpp>
-#include <chrono>
-#include <vector>
-#include <string>
 
 using namespace geode::prelude;
 
-static int g_assistLevel = 100;
+namespace {
+    enum class Page {
+        Control,
+        Settings,
+        Stats,
+        About
+    };
 
-class InputAdjusterPopup : public Popup {
+    static bool g_demoArmed = false;
+    static bool g_cubeSelected = true;
+    static bool g_smartDetection = true;
+    static bool g_autoRestart = false;
+}
+
+class KaeAutoPlayPopup : public Popup {
 protected:
-    CCLabelBMFont* m_levelLabel = nullptr;
-    CCLabelBMFont* m_progressLabel = nullptr;
-    CCLabelBMFont* m_resultLabel = nullptr;
-    CCLayerColor* m_progressFill = nullptr;
+    CCNode* m_pages[4] = {};
+    CCLabelBMFont* m_status = nullptr;
+    CCLabelBMFont* m_mode = nullptr;
+    CCLabelBMFont* m_detection = nullptr;
 
-    bool m_started = false;
-    int m_samples = 0;
-
-    std::chrono::steady_clock::time_point m_lastTap;
-    std::vector<double> m_intervals;
+    Page m_currentPage = Page::Control;
 
     bool init() {
-        if (!Popup::init(320.f, 270.f)) {
+        if (!Popup::init(360.f, 270.f))
             return false;
-        }
 
-        this->setTitle("Input Adjuster");
+        this->setTitle("KAE AUTOPLAY");
 
         auto size = m_mainLayer->getContentSize();
 
-        auto description = CCLabelBMFont::create(
-            "Touch calibration",
-            "bigFont.fnt"
-        );
-        description->setScale(0.48f);
-        description->setPosition({
-            size.width / 2.f,
-            size.height - 62.f
-        });
-        m_mainLayer->addChild(description);
-
-        // Nivel de asistencia
-        m_levelLabel = CCLabelBMFont::create(
-            "Assistance: 100%",
-            "bigFont.fnt"
-        );
-        m_levelLabel->setScale(0.48f);
-        m_levelLabel->setPosition({
-            size.width / 2.f,
-            size.height - 88.f
-        });
-        m_mainLayer->addChild(m_levelLabel);
-
-        // Botones de asistencia
-        auto menu = CCMenu::create();
-
-        auto b100 = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("100%"),
-            this,
-            menu_selector(InputAdjusterPopup::on100)
-        );
-
-        auto b50 = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("50%"),
-            this,
-            menu_selector(InputAdjusterPopup::on50)
-        );
-
-        auto b10 = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("10%"),
-            this,
-            menu_selector(InputAdjusterPopup::on10)
-        );
-
-        b100->setPosition({-85.f, 0.f});
-        b50->setPosition({0.f, 0.f});
-        b10->setPosition({85.f, 0.f});
-
-        menu->addChild(b100);
-        menu->addChild(b50);
-        menu->addChild(b10);
-
-        menu->setPosition({
-            size.width / 2.f,
-            size.height - 125.f
-        });
-
-        m_mainLayer->addChild(menu);
-
-        // Texto de progreso
-        m_progressLabel = CCLabelBMFont::create(
-            "Samples: 0 / 10",
-            "bigFont.fnt"
-        );
-        m_progressLabel->setScale(0.42f);
-        m_progressLabel->setPosition({
-            size.width / 2.f,
-            size.height - 157.f
-        });
-        m_mainLayer->addChild(m_progressLabel);
-
-        // Barra de progreso
+        // Main background
         auto background = CCLayerColor::create(
-            {55, 55, 55, 255},
-            220.f,
-            10.f
+            {15, 13, 25, 245},
+            size.width,
+            size.height
         );
+        m_mainLayer->addChild(background, -2);
 
-        background->setPosition({
-            size.width / 2.f - 110.f,
-            size.height - 178.f
-        });
-
-        m_mainLayer->addChild(background);
-
-        m_progressFill = CCLayerColor::create(
-            {40, 210, 120, 255},
-            1.f,
-            10.f
-        );
-
-        m_progressFill->setAnchorPoint({0.f, 0.5f});
-        m_progressFill->setPosition({
-            size.width / 2.f - 110.f,
-            size.height - 173.f
-        });
-
-        m_mainLayer->addChild(m_progressFill);
-
-        // Resultado
-        m_resultLabel = CCLabelBMFont::create(
-            "Average interval: -- ms",
+        // Header
+        auto title = CCLabelBMFont::create(
+            "KAE AUTOPLAY",
             "bigFont.fnt"
         );
-
-        m_resultLabel->setScale(0.40f);
-        m_resultLabel->setPosition({
+        title->setScale(0.65f);
+        title->setColor({190, 130, 255});
+        title->setPosition({
             size.width / 2.f,
-            size.height - 200.f
+            size.height - 27.f
         });
+        m_mainLayer->addChild(title);
 
-        m_mainLayer->addChild(m_resultLabel);
-
-        // Botón de medición
-        auto sampleButton = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("TAP TO CALIBRATE"),
-            this,
-            menu_selector(InputAdjusterPopup::onSample)
+        auto version = CCLabelBMFont::create(
+            "SMART GAMEPLAY ANALYSIS  |  v0.1.0",
+            "goldFont.fnt"
         );
-
-        auto sampleMenu = CCMenu::create();
-        sampleButton->setPosition({0.f, 0.f});
-        sampleMenu->addChild(sampleButton);
-
-        sampleMenu->setPosition({
+        version->setScale(0.27f);
+        version->setPosition({
             size.width / 2.f,
-            30.f
+            size.height - 45.f
         });
+        m_mainLayer->addChild(version);
 
-        m_mainLayer->addChild(sampleMenu);
+        // Sidebar
+        auto sidebar = CCLayerColor::create(
+            {24, 20, 39, 255},
+            86.f,
+            190.f
+        );
+        sidebar->setPosition({8.f, 8.f});
+        m_mainLayer->addChild(sidebar);
 
-        updateLevel();
+        createPages();
+
+        // Navigation
+        auto nav = CCMenu::create();
+        nav->setPosition({51.f, 160.f});
+
+        addNavButton(nav, "CONTROL", -0.f,
+            menu_selector(KaeAutoPlayPopup::onControl));
+
+        addNavButton(nav, "SETTINGS", -42.f,
+            menu_selector(KaeAutoPlayPopup::onSettings));
+
+        addNavButton(nav, "STATS", -84.f,
+            menu_selector(KaeAutoPlayPopup::onStats));
+
+        addNavButton(nav, "ABOUT", -126.f,
+            menu_selector(KaeAutoPlayPopup::onAbout));
+
+        m_mainLayer->addChild(nav);
+
+        showPage(Page::Control);
+        updateStatus();
 
         return true;
     }
 
-    void updateLevel() {
-        if (!m_levelLabel) return;
+    void addNavButton(
+        CCMenu* menu,
+        const char* text,
+        float y,
+        SEL_MenuHandler callback
+    ) {
+        auto button = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create(text, 75, true, "goldFont.fnt", "GJ_button_04.png", 25.f, 0.45f),
+            this,
+            callback
+        );
 
-        std::string text =
-            "Assistance: " + std::to_string(g_assistLevel) + "%";
-
-        m_levelLabel->setString(text.c_str());
+        button->setPosition({0.f, y});
+        menu->addChild(button);
     }
 
-    void setLevel(int level) {
-        g_assistLevel = level;
-        updateLevel();
+    CCLabelBMFont* addLabel(
+        CCNode* parent,
+        const char* text,
+        float x,
+        float y,
+        float scale = 0.42f
+    ) {
+        auto label = CCLabelBMFont::create(
+            text,
+            "bigFont.fnt"
+        );
 
-        log::info(
-            "Input Adjuster level: {}%",
-            g_assistLevel
+        label->setScale(scale);
+        label->setAnchorPoint({0.f, 0.5f});
+        label->setPosition({x, y});
+        parent->addChild(label);
+
+        return label;
+    }
+
+    CCMenuItemSpriteExtra* addButton(
+        CCNode* parent,
+        const char* text,
+        float x,
+        float y,
+        SEL_MenuHandler callback
+    ) {
+        auto menu = CCMenu::create();
+        menu->setPosition({x, y});
+
+        auto button = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create(text),
+            this,
+            callback
+        );
+
+        menu->addChild(button);
+        parent->addChild(menu);
+
+        return button;
+    }
+
+    void createPages() {
+        auto size = m_mainLayer->getContentSize();
+
+        for (int i = 0; i < 4; i++) {
+            m_pages[i] = CCNode::create();
+            m_pages[i]->setPosition({0.f, 0.f});
+            m_mainLayer->addChild(m_pages[i]);
+        }
+
+        // CONTROL PAGE
+        auto control = m_pages[0];
+
+        addLabel(control, "AUTOPLAY STATUS", 108.f, 218.f, 0.42f);
+
+        m_status = addLabel(
+            control,
+            "DISABLED",
+            108.f,
+            194.f,
+            0.55f
+        );
+        m_status->setColor({180, 180, 190});
+
+        addLabel(control, "MODE SELECTION", 108.f, 157.f, 0.42f);
+
+        addButton(
+            control, "CUBE", 155.f, 132.f,
+            menu_selector(KaeAutoPlayPopup::onCube)
+        );
+
+        addButton(
+            control, "SHIP", 255.f, 132.f,
+            menu_selector(KaeAutoPlayPopup::onShip)
+        );
+
+        m_mode = addLabel(
+            control,
+            "Selected: Cube",
+            108.f,
+            105.f,
+            0.38f
+        );
+
+        addLabel(
+            control,
+            "SMART DETECTION",
+            108.f,
+            73.f,
+            0.38f
+        );
+
+        m_detection = addLabel(
+            control,
+            "Detector: NOT CONNECTED",
+            108.f,
+            52.f,
+            0.32f
+        );
+        m_detection->setColor({255, 190, 100});
+
+        addButton(
+            control, "START", 165.f, 20.f,
+            menu_selector(KaeAutoPlayPopup::onStart)
+        );
+
+        addButton(
+            control, "STOP", 270.f, 20.f,
+            menu_selector(KaeAutoPlayPopup::onStop)
+        );
+
+        // SETTINGS PAGE
+        auto settings = m_pages[1];
+
+        addLabel(settings, "CONFIGURATION", 108.f, 218.f, 0.48f);
+
+        addLabel(settings, "Smart Detection", 108.f, 174.f, 0.42f);
+
+        addButton(
+            settings, "TOGGLE", 265.f, 174.f,
+            menu_selector(KaeAutoPlayPopup::onToggleDetection)
+        );
+
+        addLabel(settings, "Auto Restart", 108.f, 128.f, 0.42f);
+
+        addButton(
+            settings, "TOGGLE", 265.f, 128.f,
+            menu_selector(KaeAutoPlayPopup::onToggleRestart)
+        );
+
+        addLabel(
+            settings,
+            "Detection settings are experimental.",
+            108.f,
+            70.f,
+            0.30f
+        );
+
+        // STATS PAGE
+        auto stats = m_pages[2];
+
+        addLabel(stats, "SESSION STATISTICS", 108.f, 218.f, 0.48f);
+        addLabel(stats, "Progress: --", 108.f, 175.f, 0.42f);
+        addLabel(stats, "Obstacles detected: --", 108.f, 145.f, 0.38f);
+        addLabel(stats, "Actions calculated: --", 108.f, 115.f, 0.38f);
+        addLabel(stats, "No gameplay session yet.", 108.f, 65.f, 0.32f);
+
+        // ABOUT PAGE
+        auto about = m_pages[3];
+
+        addLabel(about, "KAE AUTOPLAY", 108.f, 218.f, 0.50f);
+        addLabel(about, "Version: 0.1.0", 108.f, 177.f, 0.40f);
+        addLabel(about, "Developer: Kae", 108.f, 147.f, 0.40f);
+        addLabel(about, "Android ARM64", 108.f, 117.f, 0.40f);
+        addLabel(about, "Geometry Dash / Geode", 108.f, 87.f, 0.34f);
+        addLabel(about, "Experimental development build", 108.f, 48.f, 0.29f);
+    }
+
+    void showPage(Page page) {
+        m_currentPage = page;
+
+        for (int i = 0; i < 4; i++) {
+            m_pages[i]->setVisible(i == static_cast<int>(page));
+        }
+    }
+
+    void updateStatus() {
+        if (!m_status || !m_mode)
+            return;
+
+        m_status->setString(
+            g_demoArmed ? "DEMO ARMED" : "DISABLED"
+        );
+
+        m_status->setColor(
+            g_demoArmed
+                ? ccColor3B{190, 130, 255}
+                : ccColor3B{180, 180, 190}
+        );
+
+        m_mode->setString(
+            g_cubeSelected ? "Selected: Cube" : "Selected: Ship"
+        );
+
+        m_detection->setString(
+            g_smartDetection
+                ? "Detector: NOT CONNECTED"
+                : "Smart Detection: OFF"
         );
     }
 
-    void on100(CCObject*) {
-        setLevel(100);
+    void onControl(CCObject*) {
+        showPage(Page::Control);
     }
 
-    void on50(CCObject*) {
-        setLevel(50);
+    void onSettings(CCObject*) {
+        showPage(Page::Settings);
     }
 
-    void on10(CCObject*) {
-        setLevel(10);
+    void onStats(CCObject*) {
+        showPage(Page::Stats);
     }
 
-    void updateProgress() {
-        float progress = m_samples / 10.f;
-
-        m_progressFill->setContentSize({
-            220.f * progress,
-            10.f
-        });
-
-        std::string text =
-            "Samples: " + std::to_string(m_samples) + " / 10";
-
-        m_progressLabel->setString(text.c_str());
+    void onAbout(CCObject*) {
+        showPage(Page::About);
     }
 
-    void onSample(CCObject*) {
-        using Clock = std::chrono::steady_clock;
+    void onCube(CCObject*) {
+        g_cubeSelected = true;
+        updateStatus();
+    }
 
-        auto now = Clock::now();
+    void onShip(CCObject*) {
+        g_cubeSelected = false;
+        updateStatus();
+    }
 
-        if (!m_started || m_samples >= 10) {
-            m_started = true;
-            m_samples = 0;
-            m_intervals.clear();
-            m_lastTap = now;
+    void onToggleDetection(CCObject*) {
+        g_smartDetection = !g_smartDetection;
+        updateStatus();
+    }
 
-            m_resultLabel->setString(
-                "Keep tapping the button!"
-            );
+    void onToggleRestart(CCObject*) {
+        g_autoRestart = !g_autoRestart;
 
-            updateProgress();
-            return;
-        }
+        FLAlertLayer::create(
+            "Kae AutoPlay",
+            g_autoRestart
+                ? "Auto Restart preference enabled."
+                : "Auto Restart preference disabled.",
+            "OK"
+        )->show();
+    }
 
-        double interval =
-            std::chrono::duration<double, std::milli>(
-                now - m_lastTap
-            ).count();
+    void onStart(CCObject*) {
+        g_demoArmed = true;
+        updateStatus();
 
-        m_lastTap = now;
+        FLAlertLayer::create(
+            "Kae AutoPlay",
+            "Interface preview enabled.\n"
+            "Gameplay detector is not implemented yet.",
+            "OK"
+        )->show();
+    }
 
-        m_intervals.push_back(interval);
-        m_samples++;
-
-        updateProgress();
-
-        if (m_samples == 10) {
-            double total = 0.0;
-
-            for (double value : m_intervals) {
-                total += value;
-            }
-
-            double average = total / m_intervals.size();
-
-            std::string result =
-                "Average interval: " +
-                std::to_string(static_cast<int>(average)) +
-                " ms";
-
-            m_resultLabel->setString(result.c_str());
-
-            log::info(
-                "Calibration completed. Average interval: {} ms",
-                average
-            );
-
-            m_started = false;
-        }
+    void onStop(CCObject*) {
+        g_demoArmed = false;
+        updateStatus();
     }
 
 public:
-    static InputAdjusterPopup* create() {
-        auto ret = new InputAdjusterPopup();
+    static KaeAutoPlayPopup* create() {
+        auto ret = new KaeAutoPlayPopup();
 
         if (ret->init()) {
             ret->autorelease();
@@ -282,36 +384,37 @@ public:
     }
 };
 
-// Integración en el menú principal
-class $modify(MyMenuLayer, MenuLayer) {
+class $modify(KaeMenuLayer, MenuLayer) {
     bool init() {
-        if (!MenuLayer::init()) {
+        if (!MenuLayer::init())
             return false;
-        }
 
         auto menu = this->getChildByID("bottom-menu");
 
         if (menu) {
             auto button = CCMenuItemSpriteExtra::create(
-                ButtonSprite::create("INPUT"),
+                ButtonSprite::create("KAE", 50, true, "goldFont.fnt", "GJ_button_04.png", 30.f, 0.8f),
                 this,
-                menu_selector(MyMenuLayer::onInputAdjuster)
+                menu_selector(KaeMenuLayer::onOpenKae)
             );
 
-            button->setID("input-adjuster-button"_spr);
-
+            button->setID("kae-autoplay-button"_spr);
             menu->addChild(button);
             menu->updateLayout();
+
+            log::info("Kae AutoPlay button added.");
+        }
+        else {
+            log::warn("Kae AutoPlay: bottom-menu not found.");
         }
 
         return true;
     }
 
-    void onInputAdjuster(CCObject*) {
-        auto popup = InputAdjusterPopup::create();
+    void onOpenKae(CCObject*) {
+        auto popup = KaeAutoPlayPopup::create();
 
-        if (popup) {
+        if (popup)
             popup->show();
-        }
     }
 };
