@@ -1,7 +1,7 @@
 
 cmake_minimum_required(VERSION 3.25)
 
-project(InputAdjuster VERSION 0.1.0)
+project(KaeAutoPlay VERSION 0.1.0)
 
 # Estándar de C++
 set(CMAKE_CXX_STANDARD 23)
