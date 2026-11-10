@@ -3,28 +3,28 @@ cmake_minimum_required(VERSION 3.25)
 
 project(KaeModMenu VERSION 0.1.0)
 
-# Estándar de C++
-set(CMAKE_CXX_STANDARD 23)
+# C++ standard
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Visibilidad de símbolos
+# Symbol visibility
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
-# Buscar código fuente
+# Collect all source files
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
-# Comprobar que existan archivos fuente
 if(NOT SOURCES)
     message(FATAL_ERROR "No source files found in src/")
 endif()
 
-# Crear biblioteca del mod
+# Create mod library
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
-# Buscar Geode SDK
+# Find Geode SDK
 if(NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "GEODE_SDK environment variable is not set")
 endif()
@@ -34,5 +34,5 @@ add_subdirectory(
     "${CMAKE_CURRENT_BINARY_DIR}/geode"
 )
 
-# Configurar mod
+# Configure Geode mod
 setup_geode_mod(${PROJECT_NAME})
