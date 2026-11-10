@@ -1,5 +1,5 @@
 
-name: Build Kae AutoPlay
+name: Build Kae Mod-Menu
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Kae AutoPlay
+      - name: Build Kae Mod-Menu
         id: build
         uses: geode-sdk/build-geode-mod@main
         with:
@@ -29,7 +29,7 @@ jobs:
       - name: Upload Android ARM64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kae-AutoPlay-Android64
+          name: Kae-Mod-Menu-Android64
           path: ${{ steps.build.outputs.build-output }}
           if-no-files-found: error
           compression-level: 9
